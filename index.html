@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ภารกิจ Smart Shopper - CT Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f0fdfa; /* Light teal background */
+            overflow-x: hidden;
+        }
+
+        /* Cartoon/Game Button Styles */
+        .btn-cartoon {
+            transition: all 0.1s ease-in-out;
+            box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+            border: 3px solid black;
+        }
+        .btn-cartoon:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px rgba(0,0,0,1);
+        }
+        .btn-blue { background-color: #3b82f6; color: white; }
+        .btn-green { background-color: #22c55e; color: white; }
+        .btn-yellow { background-color: #eab308; color: black; }
+        .btn-red { background-color: #ef4444; color: white; }
+
+        /* Screen Management */
+        .screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; width: 100%; padding: 1rem;}
+        .screen.active { display: flex; animation: fadeIn 0.5s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Grid specific styles for Level 3 */
+        .map-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(40px, 60px));
+            grid-template-rows: repeat(5, minmax(40px, 60px));
+            gap: 2px;
+            background-color: #333;
+            padding: 4px;
+            border: 4px solid black;
+            border-radius: 8px;
+            margin: 1rem auto;
+            position: relative;
+        }
+        
+        .cell {
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            position: relative;
+        }
+
+        .obstacle { background-color: #94a3b8; }
+        .target { background-color: #fef08a; }
+
+        .player-cart {
+            position: absolute;
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none; align-items: center; justify-content: center;
+            z-index: 50;
+        }
+        .modal-overlay.active { display: flex; }
+    </style>
+</head>
+<body class="bg-teal-50 text-gray-800 h-screen flex flex-col">
+
+    <header class="w-full bg-white border-b-4 border-black p-4 flex justify-between items-center sticky top-0 z-20">
+        <div class="flex items-center gap-2">
+            <span class="text-3xl">🛒</span>
+            <h1 class="font-bold text-xl md:text-2xl text-blue-800">Smart Shopper</h1>
+        </div>
+        <div class="w-1/2 md:w-1/3">
+            <div class="flex justify-between text-sm font-bold mb-1">
+                <span>CT Score</span>
+                <span id="scoreText">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 border-2 border-black rounded-full h-4">
+                <div id="scoreBar" class="bg-yellow-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow w-full max-w-4xl mx-auto flex flex-col relative overflow-hidden">
+        
+        <div id="screen-start" class="screen active">
+            <h2 class="text-3xl md:text-5xl font-bold text-center text-blue-600 mb-6 drop-shadow-md">ภารกิจ Smart Shopper</h2>
+            <div class="bg-white border-4 border-black rounded-2xl p-6 max-w-lg text-center shadow-[8px_8px_0_0_rgba(0,0,0,0.2)] mb-8">
+                <p class="text-lg mb-4">ยินดีต้อนรับสู่ซูเปอร์มาร์เก็ต! วันนี้เรามีภารกิจซื้อของให้คุ้มค่าและจัดของให้ครบตามเป้าหมาย</p>
+                <div class="bg-blue-100 p-4 rounded-xl border-2 border-blue-300 text-left mb-4">
+                    <h3 class="font-bold text-blue-800 mb-2">🧠 ใช้แนวคิดเชิงคำนวณ (CT) เพื่อแก้ปัญหา:</h3>
+                    <ul class="list-disc pl-5 space-y-1 text-sm md:text-base">
+                        <li><b>Decomposition:</b> แบ่งปัญหาใหญ่ เป็น 3 ด่านย่อย</li>
+                        <li><b>Abstraction:</b> คัดกรองข้อมูลที่จำเป็น</li>
+                        <li><b>Pattern Recognition:</b> สังเกตรูปแบบโปรโมชัน</li>
+                        <li><b>Algorithm Design:</b> วางแผนขั้นตอนการเดินช้อปปิ้ง</li>
+                    </ul>
+                </div>
+            </div>
+            <button onclick="startGame()" class="btn-cartoon btn-green text-xl px-8 py-4 rounded-xl font-bold flex items-center gap-2">
+                เริ่มภารกิจเลย! 🚀
+            </button>
+        </div>
+
+        <div id="screen-level1" class="screen">
+            <div class="text-center mb-6">
+                <span class="inline-block bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-bold border-2 border-blue-400 mb-2">ด่านที่ 1</span>
+                <h2 class="text-2xl md:text-3xl font-bold">คัดกรองข้อมูล (Abstraction)</h2>
+                <p class="text-gray-600 mt-2">เลือกเฉพาะ "ข้อมูลที่จำเป็น" ต่อการคำนวณเงิน 2 อย่าง</p>
+            </div>
+
+            <div class="bg-white border-4 border-black p-6 rounded-2xl w-full max-w-md text-center shadow-[8px_8px_0_0_rgba(0,0,0,0.2)]">
+                <div class="text-6xl mb-4">🥫</div>
+                <h3 class="text-xl font-bold mb-4">ซุปกระป๋อง ตราซุปเปอร์เจ๋ง</h3>
+                
+                <div class="grid grid-cols-2 gap-3 mb-6" id="l1-options">
+                    <!-- Options generated via JS -->
+                </div>
+
+                <button onclick="checkLevel1()" class="btn-cartoon btn-blue w-full py-3 rounded-xl text-lg">ตรวจสอบคำตอบ</button>
+            </div>
+        </div>
+
+        <div id="screen-level2" class="screen">
+            <div class="text-center mb-6">
+                <span class="inline-block bg-purple-200 text-purple-800 px-3 py-1 rounded-full text-sm font-bold border-2 border-purple-400 mb-2">ด่านที่ 2</span>
+                <h2 class="text-2xl md:text-3xl font-bold">จับคู่โปรโมชัน (Pattern Recognition)</h2>
+                <p class="text-gray-600 mt-2">เปรียบเทียบและเลือกกล่องนมที่ "ราคาต่อกล่อง" คุ้มที่สุด!</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6 w-full justify-center max-w-2xl px-4">
+                <!-- Choice A -->
+                <div onclick="checkLevel2('A')" class="cursor-pointer bg-white border-4 border-black p-6 rounded-2xl flex-1 text-center hover:bg-yellow-50 transition-colors shadow-[8px_8px_0_0_rgba(0,0,0,0.1)] hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:-translate-y-1">
+                    <div class="text-6xl mb-4">🧃</div>
+                    <h3 class="text-xl font-bold text-blue-700">นมทางเลือก A</h3>
+                    <div class="bg-yellow-200 text-yellow-900 border-2 border-yellow-500 rounded-lg p-2 my-3 text-lg font-bold">
+                        ราคา 30 บาท<br><span class="text-red-600">โปรโมชัน: ซื้อ 1 แถม 1</span>
+                    </div>
+                    <p class="text-sm text-gray-500">(ได้ 2 กล่อง จ่าย 30 บาท)</p>
+                </div>
+
+                <!-- Choice B -->
+                <div onclick="checkLevel2('B')" class="cursor-pointer bg-white border-4 border-black p-6 rounded-2xl flex-1 text-center hover:bg-yellow-50 transition-colors shadow-[8px_8px_0_0_rgba(0,0,0,0.1)] hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:-translate-y-1">
+                    <div class="text-6xl mb-4">🧃</div>
+                    <h3 class="text-xl font-bold text-green-700">นมทางเลือก B</h3>
+                    <div class="bg-green-200 text-green-900 border-2 border-green-500 rounded-lg p-2 my-3 text-lg font-bold">
+                        ราคา 20 บาท<br><span class="text-red-600">ลดราคาพิเศษ 10%</span>
+                    </div>
+                    <p class="text-sm text-gray-500">(ลดไป 2 บาท)</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-level3" class="screen">
+            <div class="text-center mb-2">
+                <span class="inline-block bg-green-200 text-green-800 px-3 py-1 rounded-full text-sm font-bold border-2 border-green-400 mb-2">ด่านที่ 3</span>
+                <h2 class="text-2xl md:text-3xl font-bold">เขียนอัลกอริทึม (Algorithm)</h2>
+                <p class="text-gray-600 mt-1 text-sm md:text-base">สั่งรถเข็น 🛒 ไปหยิบขนมปัง 🍞 โดยห้ามชนชั้นวางของ 📦</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 w-full max-w-4xl px-2 items-center justify-center">
+                <!-- Map Area -->
+                <div class="flex-shrink-0">
+                    <div id="l3-map" class="map-grid">
+                        <!-- Cells generated via JS -->
+                        <div id="player" class="player-cart">🛒</div>
+                    </div>
+                </div>
+
+                <!-- Control Area -->
+                <div class="w-full max-w-sm bg-white border-4 border-black rounded-xl p-4 flex flex-col shadow-[4px_4px_0_0_rgba(0,0,0,0.2)]">
+                    <h3 class="font-bold mb-2">คำสั่ง (คลิกเพื่อเพิ่ม):</h3>
+                    <div class="grid grid-cols-4 gap-2 mb-4">
+                        <button onclick="addCommand('UP')" class="btn-cartoon bg-gray-100 py-2 rounded text-lg">⬆️</button>
+                        <button onclick="addCommand('DOWN')" class="btn-cartoon bg-gray-100 py-2 rounded text-lg">⬇️</button>
+                        <button onclick="addCommand('LEFT')" class="btn-cartoon bg-gray-100 py-2 rounded text-lg">⬅️</button>
+                        <button onclick="addCommand('RIGHT')" class="btn-cartoon bg-gray-100 py-2 rounded text-lg">➡️</button>
+                        <button onclick="addCommand('PICK')" class="btn-cartoon bg-yellow-200 py-2 rounded text-lg col-span-4 border-yellow-600">🛒 หยิบสินค้า</button>
+                    </div>
+
+                    <h3 class="font-bold mb-2 border-t pt-2">ลำดับคำสั่ง (Sequence):</h3>
+                    <div id="command-list" class="flex flex-wrap gap-1 min-h-[50px] bg-gray-50 border-2 border-dashed border-gray-400 p-2 rounded mb-4">
+                        <!-- Commands show here -->
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="clearCommands()" class="btn-cartoon btn-red flex-1 py-2 rounded-lg">ล้าง (Clear)</button>
+                        <button onclick="runAlgorithm()" class="btn-cartoon btn-green flex-1 py-2 rounded-lg">รัน (Run) ▶</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-end" class="screen">
+            <h2 class="text-4xl md:text-5xl font-bold text-center text-yellow-500 mb-6 drop-shadow-md">🎉 ภารกิจสำเร็จ! 🎉</h2>
+            <div class="bg-white border-4 border-black rounded-2xl p-6 max-w-lg text-center shadow-[8px_8px_0_0_rgba(0,0,0,0.2)] mb-8">
+                <div class="text-6xl mb-4">🏆</div>
+                <p class="text-xl font-bold mb-2">สุดยอดมาก! Smart Shopper ตัวจริง</p>
+                <p class="text-gray-700">เธอได้ใช้ <b>แนวคิดเชิงคำนวณ (Computational Thinking)</b> ในการแก้ปัญหาการซื้อของได้อย่างสมบูรณ์แบบ ทั้งการคัดกรองข้อมูล หารูปแบบความคุ้มค่า และการเขียนลำดับขั้นตอน!</p>
+            </div>
+            <button onclick="location.reload()" class="btn-cartoon btn-blue text-xl px-8 py-4 rounded-xl font-bold">
+                เล่นอีกครั้ง 🔄
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Message Modal -->
+    <div id="msg-modal" class="modal-overlay">
+        <div class="bg-white border-4 border-black rounded-2xl p-6 max-w-sm w-11/12 text-center transform scale-95 transition-transform duration-200 shadow-[8px_8px_0_0_rgba(0,0,0,0.5)]">
+            <div id="msg-icon" class="text-5xl mb-3">✅</div>
+            <h3 id="msg-title" class="text-2xl font-bold mb-2 text-green-600">ถูกต้อง!</h3>
+            <p id="msg-desc" class="text-gray-700 mb-6">คำอธิบาย</p>
+            <button id="msg-btn" class="btn-cartoon btn-yellow w-full py-3 rounded-xl text-lg font-bold">ไปด่านต่อไป ➔</button>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentScore = 0;
+        let activeScreen = 'start';
+        
+        // Navigation
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(`screen-${screenId}`).classList.add('active');
+            activeScreen = screenId;
+        }
+
+        function updateScore(increment) {
+            currentScore = Math.min(100, currentScore + increment);
+            document.getElementById('scoreBar').style.width = `${currentScore}%`;
+            document.getElementById('scoreText').innerText = `${Math.floor(currentScore)}%`;
+        }
+
+        function showModal(type, title, desc, btnText, callback) {
+            const modal = document.getElementById('msg-modal');
+            const icon = document.getElementById('msg-icon');
+            const titleEl = document.getElementById('msg-title');
+            
+            if(type === 'success') {
+                icon.innerText = '✅';
+                titleEl.className = 'text-2xl font-bold mb-2 text-green-600';
+            } else if(type === 'error') {
+                icon.innerText = '❌';
+                titleEl.className = 'text-2xl font-bold mb-2 text-red-600';
+            } else {
+                icon.innerText = '💡';
+                titleEl.className = 'text-2xl font-bold mb-2 text-blue-600';
+            }
+
+            titleEl.innerText = title;
+            document.getElementById('msg-desc').innerHTML = desc;
+            
+            const btn = document.getElementById('msg-btn');
+            btn.innerText = btnText;
+            btn.onclick = () => {
+                modal.classList.remove('active');
+                if(callback) callback();
+            };
+
+            modal.classList.add('active');
+        }
+
+        function startGame() {
+            switchScreen('level1');
+            initLevel1();
+        }
+
+        const l1Data = [
+            { id: 'price', text: 'ราคา 50 บาท', isEssential: true },
+            { id: 'color', text: 'กระป๋องสีแดง', isEssential: false },
+            { id: 'discount', text: 'ส่วนลด 10 บาท', isEssential: true },
+            { id: 'slogan', text: 'อร่อยเหาะทะลุโลก', isEssential: false },
+            { id: 'brand', text: 'ยี่ห้อซุปเปอร์เจ๋ง', isEssential: false }
+        ];
+        let l1Selected = new Set();
+
+        function initLevel1() {
+            const container = document.getElementById('l1-options');
+            container.innerHTML = '';
+            l1Selected.clear();
+            
+            // Shuffle
+            const shuffled = [...l1Data].sort(() => Math.random() - 0.5);
+            
+            shuffled.forEach(item => {
+                const btn = document.createElement('div');
+                btn.className = 'cursor-pointer border-2 border-gray-300 rounded-xl p-3 text-sm md:text-base font-bold bg-gray-50 hover:bg-blue-50 transition-colors';
+                btn.innerText = item.text;
+                btn.onclick = () => toggleL1Selection(btn, item.id);
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleL1Selection(btn, id) {
+            if(l1Selected.has(id)) {
+                l1Selected.delete(id);
+                btn.classList.remove('border-blue-500', 'bg-blue-100', 'text-blue-800');
+                btn.classList.add('border-gray-300', 'bg-gray-50');
+            } else {
+                if(l1Selected.size >= 2) {
+                    showModal('info', 'เลือกได้ 2 อย่าง', 'กรุณาเลือกเฉพาะข้อมูลที่จำเป็นที่สุดเพียง 2 อย่างเท่านั้น', 'ตกลง');
+                    return;
+                }
+                l1Selected.add(id);
+                btn.classList.remove('border-gray-300', 'bg-gray-50');
+                btn.classList.add('border-blue-500', 'bg-blue-100', 'text-blue-800');
+            }
+        }
+
+        function checkLevel1() {
+            if(l1Selected.size !== 2) {
+                showModal('error', 'ยังไม่ครบ!', 'กรุณาเลือกข้อมูลให้ครบ 2 อย่างที่จำเป็นต้องใช้คำนวณเงิน', 'ลองใหม่');
+                return;
+            }
+            if(l1Selected.has('price') && l1Selected.has('discount')) {
+                updateScore(33);
+                showModal('success', 'ผ่านด่าน 1!', 
+                    '<b>ทักษะ Abstraction (แนวคิดเชิงนามธรรม)</b><br><br>เก่งมาก! การเลือกเฉพาะ "ราคา" และ "ส่วนลด" โดยตัดข้อมูลยิบย่อยอื่นๆ (สี, สโลแกน) ทิ้งไป ช่วยให้เราโฟกัสกับการคำนวณเงินได้ง่ายขึ้น!',
+                    'ไปด่านที่ 2 ➔', 
+                    () => switchScreen('level2')
+                );
+            } else {
+                showModal('error', 'ยังไม่ถูกนะ', 'มีข้อมูลบางอย่างที่คุณเลือกมา ไม่จำเป็นสำหรับการคำนวณเงิน ลองตัดข้อมูลที่รุงรังออกไปสิ', 'ลองใหม่');
+            }
+        }
+
+        function checkLevel2(choice) {
+            if(choice === 'A') {
+                updateScore(34);
+                showModal('success', 'ผ่านด่าน 2!',
+                    '<b>ทักษะ Pattern Recognition (การจดจำรูปแบบ)</b><br><br>เยี่ยมไปเลย! นม A ราคา 30 บ. ได้ 2 กล่อง (ตกกล่องละ 15 บ.) คุ้มกว่านม B ที่ลดแล้วเหลือ 18 บ. <br><br>การหารูปแบบแปลงโปรโมชันให้เป็น "ราคาต่อหน่วย" ช่วยให้เราเปรียบเทียบความคุ้มค่าได้!',
+                    'ไปด่านที่ 3 ➔',
+                    () => {
+                        switchScreen('level3');
+                        initLevel3();
+                    }
+                );
+            } else {
+                showModal('error', 'ยังไม่คุ้มที่สุด!', 'ลองคำนวณดูดีๆ<br>นม A ได้ 2 กล่องในราคา 30 บาท เฉลี่ยกล่องละกี่บาท?<br>นม B ราคา 20 ลด 10% (ลด 2 บาท) เหลือกี่บาท?', 'ลองคิดใหม่');
+            }
+        }
+
+        const mapConfig = [
+            [0, 0, 0, 1, 0],
+            [1, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0],
+            [0, 1, 1, 2, 0],
+            [0, 0, 0, 1, 0]
+        ];
+        // 0=path, 1=obstacle(📦), 2=target(🍞)
+        
+        let playerPos = { x: 0, y: 0 };
+        let commandQueue = [];
+        let isRunning = false;
+        let cellWidth = 0; // Calculated on init
+
+        function initLevel3() {
+            const grid = document.getElementById('l3-map');
+            grid.innerHTML = ''; // clear
+            commandQueue = [];
+            updateCommandUI();
+            playerPos = { x: 0, y: 0 };
+
+            // Draw map
+            for(let y=0; y<5; y++) {
+                for(let x=0; x<5; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell rounded';
+                    if(mapConfig[y][x] === 1) {
+                        cell.classList.add('obstacle');
+                        cell.innerText = '📦';
+                    } else if(mapConfig[y][x] === 2) {
+                        cell.classList.add('target');
+                        cell.innerText = '🍞';
+                    }
+                    grid.appendChild(cell);
+                }
+            }
+
+            // Draw player cart
+            const player = document.createElement('div');
+            player.id = 'player';
+            player.className = 'player-cart';
+            player.innerText = '🛒';
+            grid.appendChild(player);
+
+            // Wait a tick for CSS to apply layout, then move
+            setTimeout(() => {
+                const cellEl = document.querySelector('.cell');
+                cellWidth = cellEl.offsetWidth + 2; // +gap
+                updatePlayerVisual();
+            }, 100);
+        }
+
+        function updatePlayerVisual() {
+            const player = document.getElementById('player');
+            // Assuming cells are square and gaps are 2px
+            const gap = 2;
+            const containerPadding = 4;
+            const targetCell = document.querySelectorAll('.cell')[playerPos.y * 5 + playerPos.x];
+            
+            if(targetCell) {
+                player.style.width = `${targetCell.offsetWidth}px`;
+                player.style.height = `${targetCell.offsetHeight}px`;
+                player.style.transform = `translate(${(targetCell.offsetWidth + gap) * playerPos.x + containerPadding}px, ${(targetCell.offsetHeight + gap) * playerPos.y + containerPadding}px)`;
+            }
+        }
+
+        // Handle resize to adjust player
+        window.addEventListener('resize', () => {
+            if(activeScreen === 'level3') updatePlayerVisual();
+        });
+
+        function addCommand(cmd) {
+            if(isRunning) return;
+            if(commandQueue.length >= 10) {
+                showModal('info', 'คำสั่งเต็ม', 'รถเข็นจำคำสั่งได้สูงสุด 10 คำสั่งเท่านั้น!', 'ตกลง');
+                return;
+            }
+            commandQueue.push(cmd);
+            updateCommandUI();
+        }
+
+        function clearCommands() {
+            if(isRunning) return;
+            commandQueue = [];
+            updateCommandUI();
+            resetPlayer();
+        }
+
+        function updateCommandUI() {
+            const list = document.getElementById('command-list');
+            list.innerHTML = '';
+            const icons = { 'UP': '⬆️', 'DOWN': '⬇️', 'LEFT': '⬅️', 'RIGHT': '➡️', 'PICK': '🛒' };
+            
+            if(commandQueue.length === 0) {
+                list.innerHTML = '<span class="text-gray-400 text-sm py-1">ยังไม่มีคำสั่ง (ลากวางไม่ได้ ให้คลิกปุ่มด้านบนแทนนะ)</span>';
+                return;
+            }
+
+            commandQueue.forEach((cmd, index) => {
+                const span = document.createElement('span');
+                span.className = 'bg-white border border-gray-400 px-2 py-1 rounded text-sm shadow-sm';
+                span.innerText = icons[cmd];
+                list.appendChild(span);
+            });
+        }
+
+        function resetPlayer() {
+            playerPos = { x: 0, y: 0 };
+            updatePlayerVisual();
+            document.getElementById('player').innerText = '🛒';
+        }
+
+        async function runAlgorithm() {
+            if(isRunning || commandQueue.length === 0) return;
+            isRunning = true;
+            resetPlayer();
+            
+            let picked = false;
+            let crashed = false;
+
+            for(let i=0; i<commandQueue.length; i++) {
+                const cmd = commandQueue[i];
+                let nx = playerPos.x;
+                let ny = playerPos.y;
+
+                if(cmd === 'UP') ny -= 1;
+                if(cmd === 'DOWN') ny += 1;
+                if(cmd === 'LEFT') nx -= 1;
+                if(cmd === 'RIGHT') nx += 1;
+                if(cmd === 'PICK') {
+                    if(mapConfig[playerPos.y][playerPos.x] === 2) {
+                        picked = true;
+                        document.getElementById('player').innerText = '🛍️'; // cart with item
+                    } else {
+                        // Pick empty space error
+                        crashed = true;
+                        setTimeout(() => {
+                            showModal('error', 'Debug ด่วน!', 'หยิบอากาศซะงั้น! ต้องไปยืนบนช่องขนมปังก่อนถึงจะกดหยิบได้นะ', 'แก้ไขโค้ด');
+                            resetPlayer();
+                            isRunning = false;
+                        }, 500);
+                        return;
+                    }
+                }
+
+                // Move logic if not Pick
+                if(cmd !== 'PICK') {
+                    // Check bounds
+                    if(nx < 0 || nx > 4 || ny < 0 || ny > 4) {
+                        crashed = true;
+                        setTimeout(() => {
+                            showModal('error', 'Debug ด่วน!', 'ระวัง! รถเข็นชนกำแพงซูเปอร์มาร์เก็ตแล้ว ลองเช็คลำดับคำสั่งใหม่นะ', 'แก้ไขโค้ด');
+                            resetPlayer();
+                            isRunning = false;
+                        }, 500);
+                        return;
+                    }
+
+                    // Check obstacle
+                    if(mapConfig[ny][nx] === 1) {
+                        crashed = true;
+                        // Move halfway and bounce back (visual effect via logic)
+                        playerPos.x = nx; playerPos.y = ny; updatePlayerVisual();
+                        document.getElementById('player').innerText = '💥';
+                        setTimeout(() => {
+                            showModal('error', 'Debug ด่วน!', 'โครม! ชนชั้นวางของเข้าให้แล้ว! ต้องวางแผนเดินเลี้ยวหลบให้ดีนะ (Algorithm Design)', 'แก้ไขโค้ด');
+                            resetPlayer();
+                            isRunning = false;
+                        }, 500);
+                        return;
+                    }
+
+                    playerPos.x = nx;
+                    playerPos.y = ny;
+                    updatePlayerVisual();
+                }
+
+                // Wait for animation
+                await new Promise(r => setTimeout(r, 400));
+            }
+
+            // End of execution check
+            if(!crashed) {
+                if(picked && playerPos.x === 3 && playerPos.y === 3) {
+                    // Win
+                    updateScore(33);
+                    setTimeout(() => {
+                        showModal('success', 'ผ่านด่าน 3!',
+                            '<b>ทักษะ Algorithm Design (การออกแบบอัลกอริทึม)</b><br><br>สุดยอด! การวางแผนลำดับคำสั่งทีละขั้นตอนอย่างเป็นระบบ จนกระทั่งหุ่นยนต์ทำงานได้สำเร็จตามเป้าหมาย นี่แหละหัวใจสำคัญของโปรแกรมเมอร์!',
+                            'ดูสรุปผล ➔',
+                            () => switchScreen('end')
+                        );
+                        isRunning = false;
+                    }, 500);
+                } else {
+                    // Didn't pick or not right place
+                    setTimeout(() => {
+                        showModal('info', 'ยังไม่สำเร็จ', 'รันโค้ดจบแล้วแต่ยังไม่ได้หยิบขนมปังเลย! เดินไปที่ช่องขนมปัง แล้วอย่าลืมใช้คำสั่ง [🛒 หยิบสินค้า] ด้วยนะ', 'แก้ไขโค้ด');
+                        resetPlayer();
+                        isRunning = false;
+                    }, 500);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
